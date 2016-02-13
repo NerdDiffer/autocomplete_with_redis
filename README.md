@@ -1,3 +1,13 @@
 # Autocomplete With Redis
 
-[src](http://oldblog.antirez.com/post/autocomplete-with-redis.html)
+This repo is based off the code in
+[this blog post](http://oldblog.antirez.com/post/autocomplete-with-redis.html),
+by the creator of Redis, Salvatore Sanfilippo.
+
+## Usage
+
+```ruby
+dict = Dictionary.new('foo')
+
+dict.search('ab')
+```

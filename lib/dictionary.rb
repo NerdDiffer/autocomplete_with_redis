@@ -28,12 +28,6 @@ class Dictionary
   end
 
   def search(query, max_results_count = 50)
-    search = Search.new(self, query, max_results_count)
-    search.results
-  end
-
-  def report_count
-    count = redis.zcard(set_key)
-    puts "Redis sorted set, '#{set_key}', populated with #{count} members."
+    Search.new(self, query, max_results_count)
   end
 end

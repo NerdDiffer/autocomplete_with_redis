@@ -1,21 +1,21 @@
 class Dictionary
   # Search for a term in the dictionary
   class Search
-    attr_reader :dictionary, :redis, :set_key, :file_name
-    attr_reader :results, :range_len, :query, :max_results_count,
-                :early_return_trigger, :start
+    attr_reader :dictionary, :redis, :set_key
+    attr_reader :query, :results, :range_len, :start,
+                :max_results_count, :early_return_trigger
+
 
     def initialize(dictionary, query, max_results_count = 50)
       @dictionary = dictionary
       @redis      = dictionary.redis
       @set_key    = dictionary.set_key
-      @file_name  = dictionary.file_name
 
-      @early_return_trigger = :early
+      @query      = query
       @results    = []
       @range_len  = 50 # limit to batches of 50
-      @query      = query
       @max_results_count = max_results_count
+      @early_return_trigger = :early
 
       search
     end
@@ -27,34 +27,36 @@ class Dictionary
     # @param max_results_count [Integer] maximum results to return
     # @return [Array] search results in lexigraphical order
     def search
-      @start = rank
-      return [] if start == 0
+      @start = starting_point
+      return [] if start.nil?
       while results.length <= max_results_count
         result = iterate
-        break if break?(result)
+        break if early_trigger?(result)
       end
       results
     end
 
     def iterate
       stop  = start + range_len - 1
-      range = redis.zrange(set_key, start, stop)
+      batch = redis.zrange(set_key, start, stop)
       @start += range_len
 
-      return early_return_trigger if return_early_from_iterate?(range)
+      return early_return_trigger if empty?(batch)
 
-      range.each do |entry|
-        result = process(entry)
-        break if break?(result)
+      batch.each do |entry|
+        processed_entry = process(entry)
+        # Need a way for the #process method to signal to the #search method
+        # for an early return.
+        return early_return_trigger if early_trigger?(processed_entry)
       end
     end
 
     def process(entry)
       min_len = [entry.length, query.length].min
-      slice_of_range = (0...min_len)
+      range = (0...min_len)
 
-      if entry_not_eq_to_query?(entry, slice_of_range)
-        @max_results_count = results.count
+      if not_matching?(entry, range)
+        @max_results_count = results.length
         return early_return_trigger
       end
 
@@ -62,24 +64,24 @@ class Dictionary
     end
 
     def append_to_results!(entry)
-      new_entry = entry[(0...-1)]
-      @results << new_entry
+      name = entry[(0...-1)]
+      @results << name
     end
 
-    def rank
+    def starting_point
       redis.zrank(set_key, query)
     end
 
-    def break?(result)
+    def early_trigger?(result)
       result == early_return_trigger
     end
 
-    def return_early_from_iterate?(range)
-      !range || range.length == 0
+    def empty?(batch)
+      batch.empty?
     end
 
-    def entry_not_eq_to_query?(entry, slice_of_range)
-      entry[slice_of_range] != query[slice_of_range]
+    def not_matching?(entry, range)
+      entry[range] != query[range]
     end
 
     def ok_to_append?(entry)

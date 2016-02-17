@@ -8,6 +8,6 @@ by the creator of Redis, Salvatore Sanfilippo.
 
 ```ruby
 dict = Dictionary.new('foo')
-
+dict.refresh
 dict.search('ab')
 ```

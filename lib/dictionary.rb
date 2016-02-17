@@ -12,8 +12,6 @@ class Dictionary
     @redis = Redis.new
     @set_key = set_key
     @file_name = 'female-names.txt'
-
-    refresh
   end
 
   # Populate the sorted set (or refresh if it already exists).

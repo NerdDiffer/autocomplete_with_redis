@@ -2,7 +2,7 @@ class Dictionary
   # Search for a term in the dictionary
   class Search
     attr_reader :dictionary, :redis, :set_key
-    attr_reader :query, :_query, :results, :range_len, :start,
+    attr_reader :query, :_query, :results, :range_len, :start, :batch,
                 :max_results_count, :early_return_trigger
 
     def initialize(dictionary, query, max_results_count = 50)
@@ -29,7 +29,7 @@ class Dictionary
     def search
       @start = starting_point
       return [] if start.nil?
-      while results.length <= max_results_count
+      while num_results_less_than_max?
         result = iterate
         break if early_trigger?(result)
       end
@@ -40,20 +40,28 @@ class Dictionary
       redis.zrank(set_key, _query)
     end
 
+    def num_results_less_than_max?
+      results.length <= max_results_count
+    end
+
     def early_trigger?(result)
       result == early_return_trigger
     end
 
     def iterate
-      stop  = start + range_len - 1
-      batch = redis.zrange(set_key, start, stop)
-      @start += range_len
+      next_batch!
 
       return early_return_trigger if empty?(batch)
 
       batch.each do |entry|
         process(entry)
       end
+    end
+
+    def next_batch!
+      stop   = start + range_len - 1
+      @batch = redis.zrange(set_key, start, stop)
+      @start += range_len
     end
 
     def empty?(batch)
@@ -77,9 +85,15 @@ class Dictionary
     end
 
     def append?(entry)
-      last_value_is_glob = entry[-1..-1] == '*'
-      length_not_eq_max  = results.length != max_results_count
-      last_value_is_glob && length_not_eq_max
+      last_value_is_glob?(entry) && num_results_not_eq_to_max?
+    end
+
+    def last_value_is_glob?(entry)
+      entry[-1..-1] == '*'
+    end
+
+    def num_results_not_eq_to_max?
+      results.length != max_results_count
     end
 
     def append!(entry)

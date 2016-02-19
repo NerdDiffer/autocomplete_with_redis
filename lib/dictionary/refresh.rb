@@ -10,10 +10,14 @@ class Dictionary
 
     def process_line(name)
       name.strip!
-      range = (1..name.length)
+      range = prepare_range(name)
 
       range.each { |index| add_to_set!(index, name) }
       append_with_glob_member!(name)
+    end
+
+    def prepare_range(name)
+      (1..name.length)
     end
 
     def delete_set_key!
